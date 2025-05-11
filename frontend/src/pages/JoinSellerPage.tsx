@@ -1,115 +1,153 @@
+// frontend/src/pages/JoinSellerPage.tsx
+// THIS SHOULD BE THE VERSION FROM THE PREVIOUS FULL BACKEND INTEGRATION RESPONSE
+// It already contains the logic to:
+// - Get publicKey from useWallet
+// - Create FormData for shop and product
+// - Call createShop and addProductToShop API services
+// - Handle loading states and toasts
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Add useEffect if you want to check wallet on load
 import Layout from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { createShop, addProductToShop } from '@/services/api';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useNavigate } from 'react-router-dom'; // For redirecting
 
 const JoinSellerPage = () => {
   const { toast } = useToast();
-  
+  const { publicKey, connected } = useWallet();
+  const navigate = useNavigate();
+
   const [step, setStep] = useState(1);
+  const [createdShopId, setCreatedShopId] = useState<string | null>(null);
+  const [isSubmittingShop, setIsSubmittingShop] = useState(false);
+  const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
+
   const [shopData, setShopData] = useState({
     name: '',
-    location: '',
+    description: 'A great shop on TokenMarket!',
     logo: null as File | null,
-    businessType: '',
+    type: '',
+    tokenName: '',
+    tokenSymbol: '',
   });
-  
+
   const [productData, setProductData] = useState({
     name: '',
     image: null as File | null,
     price: '',
-    rating: 5,
+    rating: '5',
+    tokenReward: '',
   });
-  
-  const handleStepOneSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Simple validation
-    if (!shopData.name || !shopData.businessType) {
+
+  // Effect to check wallet connection on component mount
+  useEffect(() => {
+    if (!connected) {
       toast({
-        title: "Missing required fields",
-        description: "Please fill in all required fields (Shop Name and Business Type)",
+        title: "Wallet Not Connected",
+        description: "Please connect your Solana wallet to create a shop.",
         variant: "destructive",
+        duration: 5000,
       });
-      return;
+      // Optionally, you could redirect or show a modal to connect wallet
     }
-    
-    toast({
-      title: "Shop created successfully!",
-      description: "Now you can add your first product to your shop.",
-      duration: 3000,
-    });
-    
-    setStep(2);
-  };
-  
-  const handleStepTwoSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Simple validation
-    if (!productData.name || !productData.price) {
-      toast({
-        title: "Missing required fields",
-        description: "Please fill in all required fields (Product Name and Price)",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    toast({
-      title: "Product added successfully!",
-      description: "Your product has been listed in your shop.",
-      duration: 3000,
-    });
-    
-    // Reset product form
-    setProductData({
-      name: '',
-      image: null,
-      price: '',
-      rating: 5,
-    });
-  };
-  
-  const handleShopInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  }, [connected, toast]);
+
+
+  const handleShopInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
-    setShopData({
-      ...shopData,
-      [name]: value,
-    });
+    setShopData({ ...shopData, [name]: value });
   };
-  
+
+  const handleShopLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setShopData({ ...shopData, logo: e.target.files ? e.target.files[0] : null });
+  };
+
+  const handleStepOneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!publicKey) {
+      toast({ title: "Wallet Not Connected", description: "Please connect your Solana wallet to create a shop.", variant: "destructive" });
+      return;
+    }
+    if (!shopData.name || !shopData.type || !shopData.tokenName || !shopData.tokenSymbol || !shopData.description) {
+      toast({ title: "Missing Shop Fields", description: "Please fill in all required shop fields.", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmittingShop(true);
+    const formData = new FormData();
+    formData.append('name', shopData.name);
+    formData.append('description', shopData.description);
+    formData.append('type', shopData.type);
+    formData.append('tokenName', shopData.tokenName);
+    formData.append('tokenSymbol', shopData.tokenSymbol.toUpperCase());
+    formData.append('ownerWalletAddress', publicKey.toBase58());
+    if (shopData.logo) {
+      formData.append('logo', shopData.logo);
+    }
+
+    try {
+      const newShop = await createShop(formData);
+      const shopIdFromResult = newShop.id || newShop._id; // Handle both id and _id
+      if (!shopIdFromResult) {
+        throw new Error("Shop created but ID was not returned.");
+      }
+      setCreatedShopId(shopIdFromResult);
+      toast({ title: "Shop Created!", description: "Now add your first product.", duration: 3000 });
+      setStep(2);
+    } catch (error: any) {
+      toast({ title: "Shop Creation Failed", description: error.message || "Could not create shop. Check if a shop already exists for this wallet.", variant: "destructive" });
+    } finally {
+      setIsSubmittingShop(false);
+    }
+  };
+
   const handleProductInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
-    
-    if (type === "file") {
-      const fileInput = e.target as HTMLInputElement;
-      const file = fileInput.files ? fileInput.files[0] : null;
-      setProductData({
-        ...productData,
-        [name]: file,
-      });
+    if (type === "file" && e.target.files) {
+      setProductData({ ...productData, [name]: e.target.files[0] });
     } else {
-      setProductData({
-        ...productData,
-        [name]: value,
-      });
+      setProductData({ ...productData, [name]: value });
+    }
+  };
+
+  const handleStepTwoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createdShopId) {
+      toast({ title: "Error", description: "Shop ID not found. Please go back.", variant: "destructive" });
+      return;
+    }
+    if (!productData.name || !productData.price || !productData.tokenReward) {
+      toast({ title: "Missing Product Fields", description: "Please fill in Product Name, Price, and Token Reward.", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmittingProduct(true);
+    const formData = new FormData();
+    formData.append('name', productData.name);
+    formData.append('price', productData.price);
+    formData.append('rating', productData.rating);
+    formData.append('tokenReward', productData.tokenReward);
+    if (productData.image) {
+      formData.append('image', productData.image);
+    }
+
+    try {
+      await addProductToShop(createdShopId, formData);
+      toast({ title: "Product Added!", description: `${productData.name} is now listed. You can add more or go to your shop.`, duration: 4000 });
+      setProductData({ name: '', image: null, price: '', rating: '5', tokenReward: '' }); // Reset form
+      // Optionally navigate to the shop page: navigate(`/shops/${createdShopId}`);
+    } catch (error: any) {
+      toast({ title: "Product Add Failed", description: error.message || "Could not add product.", variant: "destructive" });
+    } finally {
+      setIsSubmittingProduct(false);
     }
   };
   
-  const handleShopLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files ? e.target.files[0] : null;
-    setShopData({
-      ...shopData,
-      logo: file,
-    });
-  };
-  
-  const renderStarRating = () => {
-    const rating = parseInt(productData.rating.toString(), 10) || 5;
-    
-    return (
+    const renderStarRating = () => (
       <div className="flex items-center">
         {[1, 2, 3, 4, 5].map((star) => (
           <label key={star} className="cursor-pointer">
@@ -117,200 +155,136 @@ const JoinSellerPage = () => {
               type="radio"
               name="rating"
               value={star}
-              checked={rating === star}
+              checked={parseInt(productData.rating) === star}
               onChange={handleProductInputChange}
               className="hidden"
             />
-            <span className={`text-2xl ${star <= rating ? 'text-yellow-400' : 'text-gray-400'}`}>
+            <span className={`text-2xl ${star <= parseInt(productData.rating) ? 'text-yellow-400' : 'text-gray-400'}`}>
               ★
             </span>
           </label>
         ))}
       </div>
     );
-  };
-  
+
   return (
     <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-3xl font-bold text-center mb-2">Join as a Seller</h1>
           <p className="text-center text-muted-foreground mb-8">
-            Create your shop and start selling products on our marketplace.
+            {!publicKey ? "Connect your wallet to get started." : (step === 1 ? "Create your shop profile." : `Adding products to ${shopData.name || 'your new shop'}`)}
           </p>
+
+          {!publicKey && (
+            <div className="text-center py-10 bg-card rounded-lg border border-border">
+                <p className="mb-4 text-lg">Please connect your Solana wallet to register as a seller.</p>
+                <p className="text-sm text-muted-foreground">The "Connect Wallet" button is in the navigation bar.</p>
+            </div>
+          )}
           
-          <div className="bg-card rounded-lg border border-border overflow-hidden">
-            {step === 1 ? (
-              <div className="p-6">
-                <h2 className="text-xl font-medium mb-6">Step 1: Create Your Shop</h2>
-                
-                <form onSubmit={handleStepOneSubmit}>
-                  <div className="space-y-6">
-                    <div>
-                      <label htmlFor="name" className="block text-sm font-medium mb-1">
-                        Shop Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        value={shopData.name}
-                        onChange={handleShopInputChange}
-                        required
-                        className="w-full px-4 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
-                      />
+          {publicKey && (
+            <div className="bg-card rounded-lg border border-border overflow-hidden">
+              {step === 1 ? (
+                <div className="p-6 sm:p-8">
+                  <h2 className="text-xl font-medium mb-6">Step 1: Create Your Shop</h2>
+                  <form onSubmit={handleStepOneSubmit}>
+                    <div className="space-y-6">
+                      <div>
+                        <label htmlFor="shopName" className="block text-sm font-medium mb-1">Shop Name <span className="text-red-500">*</span></label>
+                        <input type="text" id="shopName" name="name" value={shopData.name} onChange={handleShopInputChange} required className="w-full px-4 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-accent"/>
+                      </div>
+                      <div>
+                        <label htmlFor="shopDescription" className="block text-sm font-medium mb-1">Description <span className="text-red-500">*</span></label>
+                        <textarea id="shopDescription" name="description" value={shopData.description} onChange={handleShopInputChange} required rows={3} className="w-full px-4 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-accent"></textarea>
+                      </div>
+                      <div>
+                        <label htmlFor="shopLogo" className="block text-sm font-medium mb-1">Shop Logo (Optional)</label>
+                        <input type="file" id="shopLogo" name="logo" accept="image/*" onChange={handleShopLogoChange} className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-input file:bg-background file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"/>
+                        <p className="text-xs text-muted-foreground mt-1">Recommended: Square image, max 5MB.</p>
+                      </div>
+                      <div>
+                        <label htmlFor="shopType" className="block text-sm font-medium mb-1">Shop Type <span className="text-red-500">*</span></label>
+                        <select id="shopType" name="type" value={shopData.type} onChange={handleShopInputChange} required className="w-full px-4 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-accent">
+                          <option value="">Select type</option>
+                          <option value="Electronics">Electronics</option>
+                          <option value="Online Groceries">Online Groceries</option>
+                          <option value="Fashion">Fashion</option>
+                          <option value="Online Food Order">Online Food Order</option>
+                          <option value="Home & Living">Home & Living</option>
+                          <option value="Garden & Plants">Garden & Plants</option>
+                          <option value="Art & Collectibles">Art & Collectibles</option>
+                          <option value="Services">Services</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                       <div>
+                        <label htmlFor="tokenName" className="block text-sm font-medium mb-1">Loyalty Token Name <span className="text-red-500">*</span></label>
+                        <input type="text" id="tokenName" name="tokenName" placeholder="e.g., MyShop Rewards" value={shopData.tokenName} onChange={handleShopInputChange} required className="w-full px-4 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-accent"/>
+                      </div>
+                       <div>
+                        <label htmlFor="tokenSymbol" className="block text-sm font-medium mb-1">Token Symbol (3-5 Chars) <span className="text-red-500">*</span></label>
+                        <input type="text" id="tokenSymbol" name="tokenSymbol" placeholder="e.g., MSR" minLength={3} maxLength={5} value={shopData.tokenSymbol} onChange={(e) => setShopData({...shopData, tokenSymbol: e.target.value.toUpperCase()})} required className="w-full px-4 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-accent"/>
+                      </div>
                     </div>
-                    
-                    <div>
-                      <label htmlFor="location" className="block text-sm font-medium mb-1">
-                        Location
-                      </label>
-                      <input
-                        type="text"
-                        id="location"
-                        name="location"
-                        value={shopData.location}
-                        onChange={handleShopInputChange}
-                        className="w-full px-4 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
-                      />
+                    <div className="mt-8">
+                      <Button type="submit" className="w-full bg-accent hover:bg-accent/80 text-foreground" disabled={isSubmittingShop || !connected}>
+                        {isSubmittingShop ? 'Creating Shop...' : 'Create Shop & Add Products'}
+                      </Button>
                     </div>
-                    
-                    <div>
-                      <label htmlFor="logo" className="block text-sm font-medium mb-1">
-                        Upload Logo
-                      </label>
-                      <input
-                        type="file"
-                        id="logo"
-                        name="logo"
-                        accept="image/*"
-                        onChange={handleShopLogoChange}
-                        className="w-full px-4 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Recommended size: 256x256 pixels
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="businessType" className="block text-sm font-medium mb-1">
-                        Business Type <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        id="businessType"
-                        name="businessType"
-                        value={shopData.businessType}
-                        onChange={handleShopInputChange}
-                        required
-                        className="w-full px-4 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
-                      >
-                        <option value="">Select a business type</option>
-                        <option value="Grocery">Grocery</option>
-                        <option value="Food">Food</option>
-                        <option value="Fashion">Fashion</option>
-                        <option value="Electronics">Electronics</option>
-                        <option value="Home & Living">Home & Living</option>
-                        <option value="Garden & Plants">Garden & Plants</option>
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-8">
-                    <Button
-                      type="submit"
-                      className="w-full bg-accent hover:bg-accent/80 text-foreground"
-                    >
-                      Create Shop
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            ) : (
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-medium">Step 2: Add Your First Product</h2>
-                  <div className="flex items-center">
-                    <span className="text-sm mr-2 text-accent-teal">Shop:</span>
-                    <span className="text-sm font-semibold">{shopData.name}</span>
-                  </div>
+                  </form>
                 </div>
-                
-                <form onSubmit={handleStepTwoSubmit}>
-                  <div className="space-y-6">
-                    <div>
-                      <label htmlFor="productName" className="block text-sm font-medium mb-1">
-                        Product Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="productName"
-                        name="name"
-                        value={productData.name}
-                        onChange={handleProductInputChange}
-                        required
-                        className="w-full px-4 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="productImage" className="block text-sm font-medium mb-1">
-                        Product Image
-                      </label>
-                      <input
-                        type="file"
-                        id="productImage"
-                        name="image"
-                        accept="image/*"
-                        onChange={handleProductInputChange}
-                        className="w-full px-4 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="productPrice" className="block text-sm font-medium mb-1">
-                        Price in USD <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        id="productPrice"
-                        name="price"
-                        value={productData.price}
-                        onChange={handleProductInputChange}
-                        min="0.01"
-                        step="0.01"
-                        required
-                        className="w-full px-4 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Star Rating
-                      </label>
-                      {renderStarRating()}
-                    </div>
+              ) : (
+                <div className="p-6 sm:p-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-medium">Step 2: Add Products</h2>
+                    {shopData.name && (
+                        <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Shop:</p>
+                            <p className="text-sm font-semibold text-accent-teal">{shopData.name}</p>
+                        </div>
+                    )}
                   </div>
-                  
-                  <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => setStep(1)}
-                    >
-                      Back to Shop Details
-                    </Button>
-                    <Button
-                      type="submit"
-                      className="flex-1 bg-accent hover:bg-accent/80 text-foreground"
-                    >
-                      Add Product
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            )}
-          </div>
+                  <form onSubmit={handleStepTwoSubmit}>
+                    <div className="space-y-6">
+                      <div>
+                        <label htmlFor="productName" className="block text-sm font-medium mb-1">Product Name <span className="text-red-500">*</span></label>
+                        <input type="text" id="productName" name="name" value={productData.name} onChange={handleProductInputChange} required className="w-full px-4 py-2 bg-background border border-input rounded-md"/>
+                      </div>
+                      <div>
+                        <label htmlFor="productImage" className="block text-sm font-medium mb-1">Product Image (Optional)</label>
+                        <input type="file" id="productImage" name="image" accept="image/*" onChange={handleProductInputChange} className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-input file:bg-background file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"/>
+                         <p className="text-xs text-muted-foreground mt-1">Max 5MB.</p>
+                      </div>
+                      <div>
+                        <label htmlFor="productPrice" className="block text-sm font-medium mb-1">Price (USD) <span className="text-red-500">*</span></label>
+                        <input type="number" id="productPrice" name="price" value={productData.price} onChange={handleProductInputChange} min="0.01" step="0.01" required className="w-full px-4 py-2 bg-background border border-input rounded-md"/>
+                      </div>
+                      <div>
+                        <label htmlFor="tokenReward" className="block text-sm font-medium mb-1">Token Reward per Purchase <span className="text-red-500">*</span></label>
+                        <input type="number" id="tokenReward" name="tokenReward" value={productData.tokenReward} onChange={handleProductInputChange} min="0" step="1" required className="w-full px-4 py-2 bg-background border border-input rounded-md"/>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Star Rating (Optional)</label>
+                        {renderStarRating()}
+                      </div>
+                    </div>
+                    <div className="mt-8 flex flex-col sm:flex-row gap-4">
+                      <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(1)} disabled={isSubmittingProduct}>Back to Shop Details</Button>
+                      <Button type="submit" className="flex-1 bg-accent hover:bg-accent/80 text-foreground" disabled={isSubmittingProduct}>
+                        {isSubmittingProduct ? 'Adding Product...' : 'Add This Product'}
+                      </Button>
+                    </div>
+                    <div className="mt-6 text-center">
+                        <Button variant="link" onClick={() => navigate(`/shops/${createdShopId}`)} className="text-accent-teal" disabled={!createdShopId}>
+                            Finish & View My Shop
+                        </Button>
+                    </div>
+                  </form>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </Layout>
