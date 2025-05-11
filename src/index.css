@@ -1,0 +1,97 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 0%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 221 58% 14%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --accent: 283 100% 50%;
+    --accent-foreground: 210 40% 98%;
+
+    --accent-teal: 174 100% 50%;
+    --accent-teal-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 283 100% 50%;
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Utility classes for neon effects */
+@layer utilities {
+  .text-glow {
+    text-shadow: 0 0 10px rgba(143, 0, 255, 0.7), 0 0 20px rgba(143, 0, 255, 0.5);
+  }
+  
+  .text-glow-teal {
+    text-shadow: 0 0 10px rgba(0, 255, 229, 0.7), 0 0 20px rgba(0, 255, 229, 0.5);
+  }
+  
+  .neon-border {
+    box-shadow: 0 0 5px rgba(143, 0, 255, 0.7), 0 0 10px rgba(143, 0, 255, 0.5);
+  }
+  
+  .neon-border-teal {
+    box-shadow: 0 0 5px rgba(0, 255, 229, 0.7), 0 0 10px rgba(0, 255, 229, 0.5);
+  }
+  
+  .glass-card {
+    background: rgba(10, 37, 64, 0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Animation classes */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
