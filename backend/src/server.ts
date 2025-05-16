@@ -20,7 +20,28 @@ const port = process.env.PORT || 5000;
 connectDB();
 
 // Middlewares
-app.use(cors()); // Enable CORS for all routes
+const allowedOrigins = [
+  'http://localhost:8080', // Vite default dev port, adjust if different
+  'http://localhost:5173', // Common alternative Vite dev port
+  'https://token-reward.vercel.app/', // REPLACE THIS with your actual deployed frontend URL
+  // Add any other origins you need to support (e.g., staging)
+];
+
+const corsOptions: cors.CorsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    // or if the origin is in the allowedOrigins list
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
+    }
+  },
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS", // OPTIONS is important for preflight requests
+  allowedHeaders: "Content-Type,Authorization,X-Requested-With", // Add any custom headers your frontend sends
+  credentials: true, // If you send cookies or use sessions (might not be needed for token auth)
+  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+};
 app.use(bodyParser.json()); // For parsing application/json
 app.use(bodyParser.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
 
