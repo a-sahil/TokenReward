@@ -12,7 +12,8 @@ import dotenv from 'dotenv';
 import { createRpc, Rpc } from '@lightprotocol/stateless.js';
 import Shop from '../model/Shop';
 import RewardClaim from '../model/RewardClaim';
-import { FinalizeOrderRequestBodyDTO } from '../types/shared.types'; 
+import { FinalizeOrderRequestBodyDTO } from '../types/cart.types';
+
 
 dotenv.config();
 
