@@ -7,6 +7,9 @@ import connectDB from './config/db';
 import shopRoutes from './routes/shopRoutes';
 import productRoutes from './routes/productRoutes';
 import errorHandler from './middleware/errorHandler';
+import rewardRoutes from './routes/rewardRoutes';
+import orderRoutes from './routes/orderRoutes';
+
 
 dotenv.config();
 
@@ -31,7 +34,8 @@ app.get('/api', (req: Request, res: Response) => {
 });
 app.use('/api/shops', shopRoutes);
 app.use('/api/products', productRoutes);
-
+app.use('/api/rewards', rewardRoutes); // Add this
+app.use('/api/orders', orderRoutes); // Add this
 
 // Error Handler Middleware (should be last)
 app.use(errorHandler);

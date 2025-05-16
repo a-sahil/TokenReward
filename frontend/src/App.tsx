@@ -14,6 +14,7 @@ import CheckoutPage from "./pages/CheckoutPage";
 import JoinSellerPage from "./pages/JoinSellerPage";
 import NotFound from "./pages/NotFound";
 import { SolanaProvider } from "./components/wallet/SolanaProvider";
+import ClaimPage from "./pages/ClaimPage";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/join" element={<JoinSellerPage />} />
+              <Route path="/claim-reward" element={<ClaimPage />} /> {/* Add this route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

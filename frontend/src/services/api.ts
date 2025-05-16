@@ -1,3 +1,5 @@
+import { CartItem } from "@/data/mockData";
+
 // frontend/src/services/api.ts
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
@@ -50,4 +52,71 @@ export const addProductToShop = async (shopId: string, productData: FormData) =>
     throw new Error(errorData.message || 'Failed to add product');
   }
   return response.json();
+};
+
+// frontend/src/services/api.ts
+// ... (getAllShops, getShopById, createShop, addProductToShop) ...
+
+// --- Reward API ---
+interface ClaimRewardPayload {
+  claimId: string; // Now takes claimId
+  userWalletAddress: string; // Wallet attempting the claim
+}
+
+interface ClaimRewardResponse {
+  message: string;
+  transactionSignature: string;
+  claimId: string;
+  recipient: string;
+  mint: string;
+  amount: string;
+}
+// (claimReward function stays the same as in the previous backend update for it)
+export const claimReward = async (payload: ClaimRewardPayload): Promise<ClaimRewardResponse> => {
+  const response = await fetch(`${API_BASE_URL}/rewards/claim`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: 'Failed to claim reward' }));
+    throw new Error(errorData.message || 'Failed to claim reward');
+  }
+  return response.json();
+};
+
+// --- Order API ---
+interface FinalizeOrderPayload {
+    paymentTransactionSignature: string;
+    cartItems: Array<CartItem & { shopId: string }>; // Assuming CartItem is defined or imported
+    payerWalletAddress: string;
+}
+
+interface FinalizeOrderResponseClaimDetail {
+    claimId: string;
+    shopName: string;
+    tokenSymbol?: string;
+    amount: number;
+}
+  
+interface FinalizeOrderResponse {
+    message: string;
+    claims: FinalizeOrderResponseClaimDetail[];
+}
+  
+export const finalizeOrder = async (payload: FinalizeOrderPayload): Promise<FinalizeOrderResponse> => {
+    const response = await fetch(`${API_BASE_URL}/orders/finalize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to finalize order' }));
+      throw new Error(errorData.message || 'Failed to finalize order');
+    }
+    return response.json();
 };

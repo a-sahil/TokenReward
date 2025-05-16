@@ -1,18 +1,11 @@
 // frontend/src/pages/JoinSellerPage.tsx
-// THIS SHOULD BE THE VERSION FROM THE PREVIOUS FULL BACKEND INTEGRATION RESPONSE
-// It already contains the logic to:
-// - Get publicKey from useWallet
-// - Create FormData for shop and product
-// - Call createShop and addProductToShop API services
-// - Handle loading states and toasts
-
-import React, { useState, useEffect } from 'react'; // Add useEffect if you want to check wallet on load
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { createShop, addProductToShop } from '@/services/api';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useNavigate } from 'react-router-dom'; // For redirecting
+import { Link, useNavigate } from 'react-router-dom';
 
 const JoinSellerPage = () => {
   const { toast } = useToast();
@@ -21,6 +14,9 @@ const JoinSellerPage = () => {
 
   const [step, setStep] = useState(1);
   const [createdShopId, setCreatedShopId] = useState<string | null>(null);
+  const [createdMintAddress, setCreatedMintAddress] = useState<string | null>(null); // New state
+  const [mintTxSignature, setMintTxSignature] = useState<string | null>(null); // New state
+
   const [isSubmittingShop, setIsSubmittingShop] = useState(false);
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
 
@@ -41,7 +37,6 @@ const JoinSellerPage = () => {
     tokenReward: '',
   });
 
-  // Effect to check wallet connection on component mount
   useEffect(() => {
     if (!connected) {
       toast({
@@ -50,10 +45,8 @@ const JoinSellerPage = () => {
         variant: "destructive",
         duration: 5000,
       });
-      // Optionally, you could redirect or show a modal to connect wallet
     }
   }, [connected, toast]);
-
 
   const handleShopInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -90,13 +83,33 @@ const JoinSellerPage = () => {
     }
 
     try {
-      const newShop = await createShop(formData);
-      const shopIdFromResult = newShop.id || newShop._id; // Handle both id and _id
+      const newShopResponse = await createShop(formData);
+      const shopIdFromResult = newShopResponse.id || newShopResponse._id;
       if (!shopIdFromResult) {
         throw new Error("Shop created but ID was not returned.");
       }
       setCreatedShopId(shopIdFromResult);
-      toast({ title: "Shop Created!", description: "Now add your first product.", duration: 3000 });
+      setCreatedMintAddress(newShopResponse.mintAddress); // Store mint address
+      setMintTxSignature(newShopResponse.mintTransactionSignature); // Store mint tx signature
+
+      toast({ 
+        title: "Shop Created!", 
+        description: (
+          <div>
+            <p>Your shop's loyalty token mint: {newShopResponse.mintAddress}</p>
+            <a 
+              href={`https://explorer.solana.com/address/${newShopResponse.mintAddress}?cluster=devnet`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-500 underline"
+            >
+              View Mint on Explorer
+            </a>
+            <p className="mt-2">Now add your first product.</p>
+          </div>
+        ),
+        duration: 10000 
+      });
       setStep(2);
     } catch (error: any) {
       toast({ title: "Shop Creation Failed", description: error.message || "Could not create shop. Check if a shop already exists for this wallet.", variant: "destructive" });
@@ -104,7 +117,7 @@ const JoinSellerPage = () => {
       setIsSubmittingShop(false);
     }
   };
-
+  // ... (rest of the component remains the same for product handling)
   const handleProductInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
     if (type === "file" && e.target.files) {
@@ -139,7 +152,6 @@ const JoinSellerPage = () => {
       await addProductToShop(createdShopId, formData);
       toast({ title: "Product Added!", description: `${productData.name} is now listed. You can add more or go to your shop.`, duration: 4000 });
       setProductData({ name: '', image: null, price: '', rating: '5', tokenReward: '' }); // Reset form
-      // Optionally navigate to the shop page: navigate(`/shops/${createdShopId}`);
     } catch (error: any) {
       toast({ title: "Product Add Failed", description: error.message || "Could not add product.", variant: "destructive" });
     } finally {
@@ -188,6 +200,7 @@ const JoinSellerPage = () => {
               {step === 1 ? (
                 <div className="p-6 sm:p-8">
                   <h2 className="text-xl font-medium mb-6">Step 1: Create Your Shop</h2>
+                  {/* ... form for shop details ... */}
                   <form onSubmit={handleStepOneSubmit}>
                     <div className="space-y-6">
                       <div>
@@ -245,7 +258,26 @@ const JoinSellerPage = () => {
                         </div>
                     )}
                   </div>
+                  {/* Display Mint Address and Explorer Link if available */}
+                  {createdMintAddress && (
+                    <div className="mb-4 p-3 bg-muted rounded-md border border-input">
+                      <p className="text-sm font-medium">Loyalty Token Minted!</p>
+                      <p className="text-xs text-muted-foreground">Mint Address: {createdMintAddress}</p>
+                      {mintTxSignature && (
+                         <p className="text-xs text-muted-foreground">Mint Tx: {mintTxSignature.substring(0,10)}...</p>
+                      )}
+                      <a 
+                        href={`https://explorer.solana.com/address/${createdMintAddress}?cluster=devnet`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-accent-teal hover:underline"
+                      >
+                        View on Devnet Explorer
+                      </a>
+                    </div>
+                  )}
                   <form onSubmit={handleStepTwoSubmit}>
+                    {/* ... form for product details ... */}
                     <div className="space-y-6">
                       <div>
                         <label htmlFor="productName" className="block text-sm font-medium mb-1">Product Name <span className="text-red-500">*</span></label>
@@ -291,4 +323,4 @@ const JoinSellerPage = () => {
   );
 };
 
-export default JoinSellerPage;
+export default JoinSellerPage;    
