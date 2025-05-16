@@ -21,7 +21,8 @@ connectDB();
 
 // Middlewares
 const allowedOrigins = [
-  'http://localhost:8080', // Vite default dev port, adjust if different
+  'http://localhost:8080',
+   'http://localhost:8080/shops', // Vite default dev port, adjust if different
   'http://localhost:5173', // Common alternative Vite dev port
   'https://token-reward.vercel.app/', // REPLACE THIS with your actual deployed frontend URL
   // Add any other origins you need to support (e.g., staging)
@@ -42,6 +43,7 @@ const corsOptions: cors.CorsOptions = {
   credentials: true, // If you send cookies or use sessions (might not be needed for token auth)
   optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
 };
+app.use(cors(corsOptions)); // ← Add this line here
 app.use(bodyParser.json()); // For parsing application/json
 app.use(bodyParser.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
 

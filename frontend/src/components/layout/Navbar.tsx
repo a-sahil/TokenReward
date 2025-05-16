@@ -14,8 +14,8 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center">
-              <span className="text-xl font-bold text-foreground mr-1">Token</span>
-              <span className="text-xl font-bold text-accent-teal text-glow-teal">Market</span>
+              <span className="text-xl font-bold text-foreground mr-1">Market</span>
+              <span className="text-xl font-bold text-accent-teal text-glow-teal">Mint</span>
             </Link>
           </div>
           
